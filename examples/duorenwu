@@ -1,0 +1,144 @@
+# https://www.jianshu.com/p/a6cf116c1bde
+
+import numpy as np
+import tensorflow as tf
+from keras.layers import Input,LSTM,Bidirectional,Dense,Dropout,Concatenate,Embedding,GlobalMaxPool1D,Flatten
+from keras.models import Model
+import keras.backend as K
+from keras.utils import plot_model
+import pandas as pd
+from  sklearn.metrics import log_loss, roc_auc_score
+from  sklearn .model_selection import train_test_split
+from  sklearn.preprocessing import LabelEncoder, MinMaxScaler, OneHotEncoder
+import warnings
+
+###输入
+# SparseFeat(namedtuple('SparseFeat', ['name', 'dimension', 'use_hash', 'dtype','embedding_name','embedding'])):
+data = pd.read_csv('./test.csv')
+
+
+sparse_features = ['Sparse' + str(i) for i in range(1, 348)]
+chinese_features = ['year', 'provname', 'urbcode', 'birthyear', 'marriage', 'houseowner', 'bathroom', 'familyincm',
+                        'expenditure', 'worktype', 'industry']
+sparse_features = sparse_features + chinese_features
+
+dense_features = ['sex',	'eduyr','income',	'earnlvl',	'hauslvl',	'birthyear_1',	'urbcode_1',	'sex_1',	'marriage_1',	'houseowner_1',	'bathroom_1',	'education_1'	,'familyincm_1'	,'expenditure_1',	'worktype_1',	'industry_1',	'townincm',	'dispincm',	'workavgincm',	'villmean'
+]
+all_features = dense_features + sparse_features
+
+
+# 找出输入特征有多少维度，输入成one hot code
+n_dense_features = 0
+n_sparse_features = 0
+for feat in dense_features:
+    n_dense_features = n_dense_features + len(data[feat].unique())
+for feat in sparse_features:
+    n_sparse_features = n_sparse_features + len(data[feat].unique())
+
+# print(n_dense_features) 2167
+# print( n_sparse_features) 358
+# print(n_features) 2525
+
+# Label标准化一下
+minmax = MinMaxScaler(feature_range=(0, 1))
+target1 = ['education']
+target2 = ['faminlvl']
+data[target1] = minmax.fit_transform(data[target1])
+data[target2] = minmax.fit_transform(data[target2])
+
+train_data, test_data = train_test_split(data, test_size=0.2,random_state=1024)
+
+
+n_row = train_data.shape[0]
+# 生成train tensor
+mms = OneHotEncoder(categories='auto', sparse=False)
+dense_train_tensor = tf.zeros([n_row,0 ])
+for feat in dense_features:
+    label_encode = LabelEncoder().fit(train_data[feat])
+    label_code = label_encode.transform(train_data[feat])
+    label_onecode = mms.fit(label_code.reshape(-1,1))
+    final_code = label_onecode.transform(label_code.reshape(-1,1))
+    local_tensor = tf.convert_to_tensor(final_code.astype('int'), tf.float32, name='dense_tensor')
+    dense_train_tensor= tf.concat([dense_train_tensor, local_tensor], 1)
+# dense_tensor = tf.transpose(dense_tensor)
+dense_train_input_size = dense_train_tensor.get_shape().as_list()
+
+
+sparse_train_tensor = tf.zeros([n_row,0 ])
+for feat in sparse_features:
+    label_encode = LabelEncoder().fit(train_data[feat])
+    label_code = label_encode.transform(train_data[feat])
+    label_onecode = mms.fit(label_code.reshape(-1,1))
+    final_code = label_onecode.transform(label_code.reshape(-1,1))
+    local_tensor1 = tf.convert_to_tensor(final_code.astype('int'), tf.float32, name='sparse_tensor')
+    sparse_train_tensor= tf.concat([sparse_train_tensor, local_tensor1], 1)
+# sparse_tensor = tf.transpose(sparse_tensor)
+sparse_train_input_size = sparse_train_tensor.get_shape().as_list()
+
+n_row = test_data.shape[0]
+# 生成test tensor
+mms = OneHotEncoder(categories='auto', sparse=False)
+dense_test_tensor = tf.zeros([n_row,0 ])
+for feat in dense_features:
+    label_encode = LabelEncoder().fit(test_data[feat])
+    label_code = label_encode.transform(test_data[feat])
+    label_onecode = mms.fit(label_code.reshape(-1,1))
+    final_code = label_onecode.transform(label_code.reshape(-1,1))
+    local_tensor = tf.convert_to_tensor(final_code.astype('int'), tf.float32, name='dense_tensor')
+    dense_test_tensor= tf.concat([dense_test_tensor, local_tensor], 1)
+
+sparse_test_tensor = tf.zeros([n_row,0 ])
+for feat in sparse_features:
+    label_encode = LabelEncoder().fit(test_data[feat])
+    label_code = label_encode.transform(test_data[feat])
+    label_onecode = mms.fit(label_code.reshape(-1,1))
+    final_code = label_onecode.transform(label_code.reshape(-1,1))
+    local_tensor1 = tf.convert_to_tensor(final_code.astype('int'), tf.float32, name='sparse_tensor')
+    sparse_test_tensor= tf.concat([sparse_test_tensor, local_tensor1], 1)
+# train_model_dense_input = {name: train_data[name] for name in dense_features}
+# train_model_sparse_input = {name: train_data[name] for name in sparse_features}
+#
+# test_model_dense_input = {name: test_data[name] for name in dense_features}
+# test_model_sparse_input = {name: test_data[name] for name in sparse_features}
+
+embedding_size = 50
+
+print("Building DNN")
+dense_input = Input(name="dense_input",shape=dense_train_input_size,batch_shape=(None,32))
+sparse_input = Input(name="sparse_input",shape=sparse_train_input_size,batch_shape=(None,32))
+pos1_emb = Embedding(input_dim=dense_train_input_size[1],output_dim=embedding_size,mask_zero=False, name = "dense-embedding")(dense_input)
+pos2_emb = Embedding(input_dim=sparse_train_input_size[1],output_dim=embedding_size,mask_zero=False, name = "sparse-embedding")(sparse_input)
+x = Concatenate(axis=1)([pos1_emb,pos2_emb])
+
+# 参数共享部分
+x = Bidirectional(LSTM(128,return_sequences=True))(x)
+
+out1 = GlobalMaxPool1D()(x)
+out1 = Dense(1024, activation='relu')(out1)
+out1 = Dropout(0.1)(out1)
+out1 = Dense(100, activation='relu')(out1)
+out1 = Dense(1, activation='softmax',name = "out1")(out1)
+
+out2 = GlobalMaxPool1D()(x)
+out2 = Dense(512, activation='relu')(out2)
+out2 = Dropout(0.1)(out2)
+out2 = Dense(32, activation='relu')(out2)
+out2 = Dense(1,activation='softmax',name = "out2")(out2)
+model = Model(inputs = [dense_input,sparse_input], outputs=[out1, out2])
+# model = Model([dense_input,sparse_input], [out1,out2])
+# model.summary()
+
+model.compile(optimizer='adam',
+              loss={'out1': 'binary_crossentropy','out2': 'binary_crossentropy'},
+              loss_weights={'out1':1, 'out2': 1},
+              metrics=["acc"])
+
+# history = model.fit(x= [np.array(train_model_dense_input).reshape(dense_train_input_size),np.array(train_model_sparse_input).reshape(sparse_train_input_size)],
+#                     y=[train_data[target1].values,train_data[target2].values],
+#                     batch_size=20,epochs=20,validation_split=0.2)
+history = model.fit(x= [dense_train_tensor,sparse_train_tensor], y=[train_data[target1].values,train_data[target2].values]
+                    ,epochs=2,steps_per_epoch=2)
+score = model.evaluate(x= [dense_test_tensor,sparse_test_tensor], y=[test_data[target1].values,test_data[target2].values],steps=128)
+print(score)
+# print("\nScore: %.2f" % (score))
+

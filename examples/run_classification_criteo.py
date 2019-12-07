@@ -1,12 +1,15 @@
 import pandas as pd
-from sklearn.metrics import log_loss, roc_auc_score
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, MinMaxScaler
+from  sklearn.metrics import log_loss, roc_auc_score
+from  sklearn .model_selection import train_test_split
+from  sklearn.preprocessing import LabelEncoder, MinMaxScaler
+import warnings
 
 from deepctr.models import DeepFM
 from deepctr.inputs import  SparseFeat, DenseFeat, get_feature_names
 
 if __name__ == "__main__":
+
+    warnings.filterwarnings("ignore")
     data = pd.read_csv('./criteo_sample.txt')
 
     sparse_features = ['C' + str(i) for i in range(1, 27)]
@@ -42,11 +45,23 @@ if __name__ == "__main__":
 
     # 4.Define Model,train,predict and evaluate
     model = DeepFM(linear_feature_columns, dnn_feature_columns, task='binary')
+    # compile(self, optimizer, loss, metrics=None, loss_weights=None, sample_weight_mode=None, weighted_metrics=None,
+    #         target_tensors=None)
     model.compile("adam", "binary_crossentropy",
                   metrics=['binary_crossentropy'], )
 
     history = model.fit(train_model_input, train[target].values,
-                        batch_size=256, epochs=10, verbose=2, validation_split=0.2, )
+                        batch_size=256, epochs=1, verbose=2, validation_split=0.2, )
     pred_ans = model.predict(test_model_input, batch_size=256)
-    print("test LogLoss", round(log_loss(test[target].values, pred_ans), 4))
-    print("test AUC", round(roc_auc_score(test[target].values, pred_ans), 4))
+
+    # print(type(test[target].values))
+    # print(type(test[target].values))
+    # print(test[target].values.shape)
+    print(pred_ans)
+    # class 'numpy.ndarray'>
+    # class 'numpy.ndarray'>
+    # (40, 1)
+    # (40, 1)
+    print(test[target].values)
+    # print("test LogLoss", round(log_loss(test[target].values, pred_ans), 4))
+    # print("test AUC", round(roc_auc_score(test[target].values, pred_ans), 4))

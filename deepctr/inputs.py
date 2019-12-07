@@ -281,7 +281,35 @@ def get_dense_input(features,feature_columns):
         dense_input_list.append(features[fc.name])
     return dense_input_list
 
+# def build_input_features(feature_columns, mask_zero=True, prefix=''):
+#     input_features = OrderedDict()
+#     for fc in feature_columns:
+#         if isinstance(fc,SparseFeat):
+#             input_features[fc.name] = Input(
+#                 shape=(1,), name=prefix+fc.name, dtype=fc.dtype)
+#         elif isinstance(fc,DenseFeat):
+#             input_features[fc.name] = Input(
+#                 shape=(fc.dimension,), name=prefix + fc.name, dtype=fc.dtype)
+#         elif isinstance(fc,VarLenSparseFeat):
+#             input_features[fc.name] = Input(shape=(fc.maxlen,), name=prefix + fc.name,
+#                                             dtype=fc.dtype)
+#             if not mask_zero:
+#                 input_features[fc.name + "_seq_length"] = Input(shape=(
+#                     1,), name=prefix + 'seq_length_' + fc.name)
+#                 input_features[fc.name + "_seq_max_length"] = fc.maxlen
+#             if fc.weight_name is not None:
+#                 input_features[fc.weight_name] = Input(shape=(fc.maxlen,1),name=prefix + fc.weight_name ,dtype="float32")
+#
+#         else:
+#             raise TypeError("Invalid feature column type,got",type(fc))
+#
+#     return input_features
 
+ # features = build_input_features(linear_feature_columns + dnn_feature_columns)
+ # sparse_embedding_list, dense_value_list = input_from_feature_columns(features,dnn_feature_columns,
+ #                                                                              embedding_size,
+ #                                                                              l2_reg_embedding,init_std,
+ #                                                                              seed)
 def input_from_feature_columns(features,feature_columns, embedding_size, l2_reg, init_std, seed,prefix='',seq_mask_zero=True,support_dense=True):
 
 
