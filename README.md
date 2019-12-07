@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # DeepCTR
 
 [![Python Versions](https://img.shields.io/pypi/pyversions/deepctr.svg)](https://pypi.org/project/deepctr)
@@ -53,3 +54,6 @@ Please follow our wechat to join group:
 - wechat ID: **deepctrbot**
 
   ![wechat](./docs/pics/weichennote.png)
+=======
+# Deepfm
+>>>>>>> 292f2df093afc0fe14662808401f0017e16a38b2
